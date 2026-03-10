@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XAUUSD AI SMART MONEY ROBOT PRO</title>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<style>
+body{margin:0;font-family:Arial;background:#020617;color:white}
+header{padding:14px;text-align:center;font-size:22px;border-bottom:1px solid #1e293b}
+.container{display:flex;height:94vh}
+.sidebar{width:340px;background:#020617;border-right:1px solid #1e293b;padding:20px;overflow:auto}
+.chart{flex:1;position:relative}
+#chart{width:100%;height:100%}
+#overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+button{width:100%;padding:12px;margin-bottom:10px;border:none;border-radius:6px;cursor:pointer}
+.buy{background:#22c55e}
+.sell{background:#ef4444}
+.robot{background:#3b82f6}
+.section{margin-top:20px;font-size:14px}
+.signal{position:absolute;right:10px;padding:5px 8px;border-radius:4px;font-size:12px}
+.zone{position:absolute;width:100%;height:26px;background:rgba(250,204,21,0.25)}
+.orderblock{position:absolute;width:100%;height:24px;background:rgba(59,130,246,0.35)}
+.fvg{position:absolute;width:100%;height:18px;background:rgba(236,72,153,0.35)}
+.line{position:absolute;width:100%;height:2px;background:yellow}
+.tp{position:absolute;width:100%;height:2px;background:#22c55e}
+.sl{position:absolute;width:100%;height:2px;background:#ef4444}
+.entryline{position:absolute;width:100%;height:2px;background:#3b82f6}
+.liq{position:absolute;width:100%;height:2px;background:red}
+.history{font-size:12px}
+</style>
+</head>
+<body>
+<header>XAUUSD AI SMART MONEY TRADING ROBOT PRO</header>
+<div class="container">
+<div class="sidebar">
+<h3>Trading Panel</h3>
+<label>Lot</label>
+<input id="lot" value="0.01">
+<button class="buy" onclick="buy()">BUY</button>
+<button class="sell" onclick="sell()">SELL</button>
+<button class="robot" onclick="toggleRobot()">ROBOT AUTO TRADE</button>
+<div class="section">
+<p>Harga Gold : <span id="price">0</span></p>
+<p>Saldo : $<span id="balance">10000</span></p>
+<p>Equity : $<span id="equity">10000</span></p>
+<p>Posisi : <span id="posisi">-</span></p>
+<p>Entry : <span id="entry">-</span></p>
+<p>P/L : <span id="pl">0</span></p>
+</div>
+<div class="section">
+<h3>Smart Money</h3>
+<p>BOS : <span id="bos">-</span></p>
+<p>CHOCH : <span id="choch">-</span></p>
+<p>Liquidity : <span id="liqtext">-</span></p>
+</div>
+<div class="section">
+<h3>SNR</h3>
+<p>Resistance : <span id="res">-</span></p>
+<p>Support : <span id="sup">-</span></p>
+</div>
+<div class="section">
+<h3>Trade History</h3>
+<div id="history" class="history"></div>
+</div>
+</div>
+<div class="chart">
+<div id="overlay"></div>
+<div id="chart"></div>
+</div>
+</div>
+<script>
+new TradingView.widget({symbol:"FOREXCOM:XAUUSD",interval:"5",timezone:"Asia/Jakarta",theme:"dark",container_id:"chart",width:"100%",height:"100%"});
+
+let price=0
+let entry=0
+let position=null
+let tp=0
+let sl=0
+let balance=10000
+let equity=10000
+let robot=false
+
+let support=0
+let resistance=0
+let lastHigh=0
+let lastLow=0
+
+async function getPrice(){
+try{
+let r=await fetch("https://api.twelvedata.com/price?symbol=XAU/USD&apikey=demo")
+let d=await r.json()
+price=parseFloat(d.price)
+document.getElementById("price").innerText=price
+calculateSNR()
+detectStructure()
+detectLiquidity()
+detectFVG()
+robotLogic()
+updatePL()
+checkClose()
+}catch(e){}
+}
+
+function calculateSNR(){
+let range=10
+support=Math.round(price-range)
+resistance=Math.round(price+range)
+document.getElementById("sup").innerText=support
+document.getElementById("res").innerText=resistance
+}
+
+function detectStructure(){
+if(price>lastHigh){
+lastHigh=price
+
+ document.getElementById("bos").innerText="Bullish BOS"
+}
+
+if(price<lastLow||lastLow==0){
+lastLow=price
+ document.getElementById("bos").innerText="Bearish BOS"
+}
+
+if(price<lastHigh&&price>support){
+ document.getElementById("choch").innerText="CHOCH Possible"
+}
+}
+
+function detectLiquidity(){
+if(price>resistance+2){
+ document.getElementById("liqtext").innerText="Liquidity Grab High"
+ drawLiquidity()
+}
+
+if(price<support-2){
+ document.getElementById("liqtext").innerText="Liquidity Grab Low"
+ drawLiquidity()
+}
+}
+
+function drawLiquidity(){
+let o=document.getElementById("overlay")
+let l=document.createElement("div")
+l.className="liq"
+l.style.top="50%"
+o.appendChild(l)
+setTimeout(()=>l.remove(),3000)
+}
+
+function detectFVG(){
+if(Math.random()>0.8){
+let o=document.getElementById("overlay")
+let f=document.createElement("div")
+f.className="fvg"
+f.style.top=Math.random()*80+"%"
+o.appendChild(f)
+setTimeout(()=>f.remove(),6000)
+}
+}
+
+function drawTradeLines(){
+let o=document.getElementById("overlay")
+
+let entryLine=document.createElement("div")
+entryLine.className="entryline"
+entryLine.style.top="55%"
+
+let tpLine=document.createElement("div")
+tpLine.className="tp"
+tpLine.style.top="45%"
+
+let slLine=document.createElement("div")
+slLine.className="sl"
+slLine.style.top="65%"
+
+o.appendChild(entryLine)
+o.appendChild(tpLine)
+o.appendChild(slLine)
+
+setTimeout(()=>{
+entryLine.remove()
+tpLine.remove()
+slLine.remove()
+},8000)
+}
+
+function drawSignal(type){
+let o=document.getElementById("overlay")
+let s=document.createElement("div")
+s.className="signal"
+
+if(type=="BUY"){
+s.style.background="#22c55e"
+s.innerText="BUY ENTRY"
+s.style.top="70%"
+}
+
+if(type=="SELL"){
+s.style.background="#ef4444"
+s.innerText="SELL ENTRY"
+s.style.top="30%"
+}
+
+o.appendChild(s)
+setTimeout(()=>s.remove(),4000)
+}
+
+function drawTP(type){
+let o=document.getElementById("overlay")
+let s=document.createElement("div")
+s.className="signal"
+
+if(type=="BUY"){
+s.style.background="#16a34a"
+s.innerText="BUY TP"
+s.style.top="60%"
+}
+
+if(type=="SELL"){
+s.style.background="#dc2626"
+s.innerText="SELL TP"
+s.style.top="40%"
+}
+
+o.appendChild(s)
+setTimeout(()=>s.remove(),5000)
+}
+
+function buy(){
+if(position) return
+
+position="BUY"
+entry=price
+
+tp=entry+12
+sl=entry-8
+
+document.getElementById("posisi").innerText="BUY"
+document.getElementById("entry").innerText=entry
+
+drawSignal("BUY")
+drawTradeLines()
+}
+
+function sell(){
+if(position) return
+
+position="SELL"
+entry=price
+
+tp=entry-12
+sl=entry+8
+
+document.getElementById("posisi").innerText="SELL"
+document.getElementById("entry").innerText=entry
+
+drawSignal("SELL")
+drawTradeLines()
+}
+
+function updatePL(){
+if(!position) return
+
+let lot=parseFloat(document.getElementById("lot").value)
+let pl=0
+
+if(position=="BUY") pl=(price-entry)*100*lot
+if(position=="SELL") pl=(entry-price)*100*lot
+
+document.getElementById("pl").innerText=pl.toFixed(2)
+
+equity=balance+pl
+
+document.getElementById("equity").innerText=equity.toFixed(2)
+}
+
+function checkClose(){
+if(!position) return
+
+if(position=="BUY"){
+if(price>=tp){
+drawTP("BUY")
+closeTrade("TP")
+}
+
+if(price<=sl){
+closeTrade("SL")
+}
+}
+
+if(position=="SELL"){
+if(price<=tp){
+drawTP("SELL")
+closeTrade("TP")
+}
+
+if(price>=sl){
+closeTrade("SL")
+}
+}
+}
+
+function closeTrade(reason){
+let pl=parseFloat(document.getElementById("pl").innerText)
+
+balance+=pl
+
+document.getElementById("balance").innerText=balance.toFixed(2)
+
+document.getElementById("history").innerHTML+=position+" | "+reason+" | Entry "+entry+" | Close "+price+" | P/L "+pl.toFixed(2)+"<br>"
+
+position=null
+
+document.getElementById("posisi").innerText="-"
+
+document.getElementById("entry").innerText="-"
+
+document.getElementById("pl").innerText="0"
+}
+
+function toggleRobot(){
+robot=!robot
+alert(robot?"Robot Aktif":"Robot Stop")
+}
+
+function robotLogic(){
+if(!robot) return
+
+if(position) return
+
+if(price>=resistance){
+sell()
+}
+
+if(price<=support){
+buy()
+}
+}
+
+setInterval(getPrice,2000)
+</script>
+</body>
+</html>
